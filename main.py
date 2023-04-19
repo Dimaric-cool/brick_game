@@ -5,22 +5,25 @@ import pygame
 import os
 
 
-
-class Paddle:
+class Paddle(pygame.sprite.Sprite):
     VEL = 4
 
-    def __init__(self, x, y, width, height, color):
+    def __init__(self, x, y):
+        pygame.sprite.Sprite.__init__(self)
+        self.image = paddle_img
+        self.rect = self.image.get_rect()
         self.x = x
         self.y = y
-        self.width = width
-        self.height = height
-        self.color = color
+        self.width = self.rect[2]
+        self.height = self.rect[3]
+        self.rect.center = (self.x + self.width // 2, self.y + self.height // 2)
 
     def draw(self, win):
-        pygame.draw.rect(win, self.color, (self.x, self.y, self.width, self.height))
+        paddle_sprite.update()
+        paddle_sprite.draw(win)
 
     def move(self, direction=1):
-        self.x = self.x + self.VEL * direction
+        self.rect.x = self.rect.x + self.VEL * direction
 
 
 class Ball:
@@ -46,8 +49,6 @@ class Ball:
         pygame.draw.circle(win, self.color, (self.x, self.y), self.radius)
 
 
-
-
 class Brick(pygame.sprite.Sprite):
     def __init__(self, x, y, health):
         pygame.sprite.Sprite.__init__(self)
@@ -70,27 +71,30 @@ class Brick(pygame.sprite.Sprite):
 
     def collide(self, ball):
         # удар справа
-        if (ball.x + ball.radius >= self.x) and (ball.x + ball.radius < self.x + self.width) and (self.y < ball.y < self.y + self.height):
+        if (ball.x + ball.radius >= self.x) and (ball.x + ball.radius < self.x + self.width) and (
+                self.y < ball.y < self.y + self.height):
             print(" удар справа")
             self.hit()
             ball.set_vel(ball.x_vel * -1, ball.y_vel)
             return True
-        if (ball.x - ball.radius <= self.x + self.width) and (ball.x - ball.radius > self.x) and (self.y < ball.y < self.y + self.height):
+        if (ball.x - ball.radius <= self.x + self.width) and (ball.x - ball.radius > self.x) and (
+                self.y < ball.y < self.y + self.height):
             print(" удар слева")
             self.hit()
             ball.set_vel(ball.x_vel * -1, ball.y_vel)
             return True
-        if (ball.y + ball.radius >= self.y) and (ball.y + ball.radius < self.y + self.height) and (self.x < ball.x < self.x + self.width):
+        if (ball.y + ball.radius >= self.y) and (ball.y + ball.radius < self.y + self.height) and (
+                self.x < ball.x < self.x + self.width):
             print(" удар сверху")
             self.hit()
             ball.set_vel(ball.x_vel, ball.y_vel * -1)
             return True
-        if (ball.y - ball.radius <= self.y + self.height) and (ball.y - ball.radius > self.y) and (self.x < ball.x < self.x + self.width):
+        if (ball.y - ball.radius <= self.y + self.height) and (ball.y - ball.radius > self.y) and (
+                self.x < ball.x < self.x + self.width):
             print(" удар снизу")
             self.hit()
             ball.set_vel(ball.x_vel, ball.y_vel * -1)
             return True
-
 
         return False
 
@@ -127,13 +131,13 @@ def ball_collision(ball):
 
 def ball_paddle_collision(ball, paddle):
     # если шарик вне положения площадки по X, то нечего не делай
-    if not (ball.x <= paddle.x + paddle.width and ball.x >= paddle.x):
+    if not (ball.x <= paddle.rect.x + paddle.width and ball.x >= paddle.rect.x):
         return
     # если шарик вне положения площадки по Y, то нечего не делай
-    if not (ball.y + ball.radius >= paddle.y):
+    if not (ball.y + ball.radius >= paddle.rect.y):
         return
 
-    paddle_center = paddle.x + paddle.width / 2
+    paddle_center = paddle.rect.x + paddle.width / 2
     distance_to_center = ball.x - paddle_center
 
     percent_width = distance_to_center / paddle.width
@@ -171,12 +175,6 @@ def generate_bricks():
     # return all_sprites
 
 
-
-
-
-
-
-
 # настройка папки ассетов
 
 game_folder = os.path.dirname(__file__)
@@ -184,6 +182,7 @@ game_folder = os.path.dirname(__file__)
 img_folder = os.path.join(game_folder, 'img')
 
 player_img = pygame.image.load(os.path.join(img_folder, 'p1_jump.png'))
+paddle_img = pygame.image.load(os.path.join(img_folder, 'paddle.png'))
 
 pygame.init()
 
@@ -198,21 +197,20 @@ BALL_RADIUS = 10
 
 LIVES_FONT = pygame.font.SysFont("comicsans", 40)
 
-
 all_sprites = pygame.sprite.Group()
-
+paddle_sprite = pygame.sprite.Group()
 
 
 def main():
     clock = pygame.time.Clock()
 
-    paddle_x = WIDTH / 2 - PADDLE_WIDTH / 2
-    paddle_y = HEIGHT - PADDLE_HEIGHT - 5
+    paddle_x = WIDTH / 2 - paddle_img.get_width() / 2
+    paddle_y = HEIGHT - paddle_img.get_height() - 5
 
-    paddle = Paddle(paddle_x, paddle_y, PADDLE_WIDTH, PADDLE_HEIGHT, "black")
+    paddle = Paddle(paddle_x, paddle_y)
     ball = Ball(WIDTH / 2, paddle_y - BALL_RADIUS, BALL_RADIUS, "black")
     generate_bricks()
-
+    paddle_sprite.add(paddle)
     lives = 3
 
     def reset():
@@ -237,9 +235,9 @@ def main():
 
         keys = pygame.key.get_pressed()
 
-        if keys[pygame.K_LEFT] and paddle.x - paddle.VEL >= 0:
+        if keys[pygame.K_LEFT] and paddle.rect.x - paddle.VEL >= 0:
             paddle.move(-1)
-        if keys[pygame.K_RIGHT] and paddle.x + paddle.VEL + paddle.width <= WIDTH:
+        if keys[pygame.K_RIGHT] and paddle.rect.x + paddle.VEL + paddle.width <= WIDTH:
             paddle.move(1)
 
         ball.move()
@@ -255,7 +253,7 @@ def main():
 
         if ball.y + ball.radius >= HEIGHT:
             lives -= 1
-            ball.x = paddle_x+paddle.width/2
+            ball.x = paddle_x + paddle.width / 2
             ball.y = paddle_y
             ball.set_vel(0, ball.VEL * -1)
             paddle.x = WIDTH / 2 - paddle.width / 2
@@ -271,8 +269,8 @@ def main():
             lives = 3
             reset()
             display_text("You Won!")
-
-        draw(win, paddle, ball, all_sprites, lives)
+        paddle_sprite.draw(win)
+        draw(win, paddle_sprite, ball, all_sprites, lives)
 
     pygame.quit()
     quit()
@@ -280,4 +278,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
